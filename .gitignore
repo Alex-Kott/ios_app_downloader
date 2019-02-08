@@ -1,2 +1,6 @@
 venv/
 .idea/
+config.py
+*.plist
+*.ipa
+__pycache__/
