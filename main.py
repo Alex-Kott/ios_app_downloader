@@ -67,18 +67,23 @@ async def text_handler(message: Message):
 
         ipa_file_name = await load_ipa_file(ipa_link)
 
-        # with open(plist_file_name, 'rb') as file:
-        #     try:
-        #         await message.reply_document(file)
-        #     except:
-        #         print(plist_file_name)
+        try:
+            with open(plist_file_name, 'rb') as file:
+                try:
+                    await message.reply_document(file)
+                except:
+                    print(plist_file_name)
 
-        with open(ipa_file_name, 'rb') as file:
-            # await message.reply_document(file)
-            await message.reply_document(file)
+            with open(ipa_file_name, 'rb') as file:
+                try:
+                    await message.reply_document(file)
+                except Exception as e:
+                    await message.reply(ipa_link)
+            os.remove(plist_file_name)
+            os.remove(ipa_file_name)
+        except Exception as e:
+            await message.reply('Что-то пошло не так')
 
-        # os.remove(plist_file_name)
-        # os.remove(ipa_file_name)
 
         # print(plist_file_content)
         # plistlib.loads(plist_file_content)
