@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import plistlib
+from hurry.filesize import size
 
 from aiogram import Bot
 from aiogram.types import Message, CallbackQuery
@@ -34,12 +35,17 @@ async def get_plist_file(app_id: int) -> str:
             return await response.text()
 
 
-async def load_ipa_file(ipa_link: str) -> str:
+async def load_ipa_file(ipa_link: str, message=None) -> str:
     link = furl(ipa_link)
     file_name = link.path.segments[-1]
 
     async with ClientSession() as session:
         async with session.get(ipa_link) as response:
+            filesize = response.headers['Content-Length']
+
+            if message:
+                await message.reply(f'Начата загрузка .ipa-файла на сервер ({filesize})')
+
             with open(file_name, 'wb') as file:
                 file.write(await response.read())
 
@@ -55,46 +61,40 @@ async def text_handler(message: Message):
     elif link.host != 'appscloud.me':
         await message.reply('Бот не работает с этим сайтом')
     else:
-        await message.reply('Начинаю загрузку...')
+        await message.reply('Получаем .plist-файл...')
+
         plist_file_content = await get_plist_file(link.args['id'])
         plist_file_name = 'application.plist'
         with open(plist_file_name, 'w', encoding='utf-8') as file:
             file.write(plist_file_content)
 
+        await message.reply('.plist-файл загружен, начинаем передачу')
+
         with open(plist_file_name, 'rb') as file:
             data = plistlib.load(file)
             ipa_link = data['items'][0]['assets'][0]['url']
 
-        ipa_file_name = await load_ipa_file(ipa_link)
+        with open(plist_file_name, 'rb') as file:
+            await message.reply_document(file)
+        os.remove(plist_file_name)
 
         try:
-            with open(plist_file_name, 'rb') as file:
-                try:
-                    await message.reply_document(file)
-                except:
-                    print(plist_file_name)
+            await message.reply(f'Ссылка на .ipa-файл: \n\n {ipa_link}')
 
-            with open(ipa_file_name, 'rb') as file:
-                try:
+            await message.reply('Начинаем загрузку .ipa-файла на сервер')
+            ipa_file_name = await load_ipa_file(ipa_link)
+            try:
+                with open(ipa_file_name, 'rb') as file:
                     await message.reply_document(file)
-                except Exception as e:
-                    await message.reply(ipa_link)
-            os.remove(plist_file_name)
+            except Exception:
+                await message.reply('Не удалось отправить загруженный .ipa-файл через Telegram')
             os.remove(ipa_file_name)
+
         except Exception as e:
-            await message.reply('Что-то пошло не так')
-
-
-        # print(plist_file_content)
-        # plistlib.loads(plist_file_content)
-    # print(link.__dict__)
-
+            await message.reply(f'Что-то пошло не так \n\n {e}')
 
 
 if __name__ == "__main__":
     logger = logging.getLogger('logger')
     logger.setLevel('INFO')
-    # event_loop = asyncio.get_event_loop()
-    # event_loop.run_until_complete(main())
-    # event_loop.close()
     executor.start_polling(dp)
